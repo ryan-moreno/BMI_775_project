@@ -222,7 +222,7 @@ if __name__ == "__main__":
     for graph_type in common.SubnetworkType:
         if graph_type != common.SubnetworkType.BAND:
             simulation_name = (
-                f"sim_gt-{graph_type.name.lower()}_subnetworksize-{10}_numsamples-{100}"
+                f"sim_gt-{graph_type.name.lower()}_subnetworksize-{10}_numsamples-{50}"
             )
             create_simulated_gene_expression_data(
                 total_num_genes=1000,

@@ -1,5 +1,15 @@
 # Differentially regulated gene network identification
 
+## TODO/ideas
+
+- Make subnetworks from B more realistic than band
+- How are the candidate subnetworks actually identified???
+  - "We considered $p = 1000$ and $μ_{10} = (0.3, 0.3, . . ., 0.3)^T$, and the gene regulatory networks were estimated using the lasso method, where the response and predictor variables are the expression levels of the target gene and regulator genes, respectively."
+  - "We consider the gene regulatory network structure based on not only expression levels of genes but also edge structures and regulatory effects of regulator
+genes to their target genes and incorporate the comprehensive information into a dissimilarity measure to compare the gene regulatory networks."
+  - In the monte carlo setting they may just be looking at the selected subnetworks themselves??
+
+
 ## Background
 
 - Task: Differentially regulated gene network identification
@@ -8,6 +18,7 @@
 - Bulk cell line gene networks
   - aggregates data across all cells in a cell line
   - identifies universal processes for the cell line
+  - Differential analysis focuses on differential regulation but not variation in the graph structure
 - Cell line characteristic-specific gene networks
   - separate cells with specific characteristics (ex: bulk RNA-seq data collected separately for sensitive vs resistant)
 - Precision matrix: inverse of covariance matrix
@@ -57,9 +68,10 @@ Generating gene expression for the remaining $p-100$ genes
 
 ## Gene regulatory network estimation
 
-- Lasso method (TODO: 11)
-  - response variables are expression levels of target gene
-  - predictor variables are the expression levels of regulator genes
+- Lasso method
+  - predictor variables $x^i$ are the expression levels of regulator genes
+  - response variables $y_i$ are expression levels of each target gene
+  - TODO: How are the regulator and response variables separated in the Monte-Carlo simulation??
 
 - Cell line characteristic-specific gene network estimated using SiGN-L1
 
@@ -81,6 +93,22 @@ Generating gene expression for the remaining $p-100$ genes
   - They find CIdrgn improves TNR of four common subnetworks
   - CIdrgn effective for gene network identification in bulk cell line gene networks and cell line characteristic-specific gene networks TODO: understand the difference
 
+## Statistics
+
+- SAM-GS statistic
+  - $D_{SAM-GS}$ measures the difference in expression levels of gene $j$ in phenotypes $A$ and $B$
+  - $D_{SAM-GS} = \sum_{j \in V} \frac{(\bar{x}_{Aj} - \bar{x}_{Bj})^2}{s_j + s_0}$
+  - $s_0$: tuning parameter (Parameter 3.3 comes from SAM paper. They chose to minimize the coefficient of variation)
+  - $s_j = \sqrt{a \cdot \left( \sum_{i=1}^{n_A} (x_{ij} - \bar{x}_{Aj})^2 \cdot \sum_{k=1}^{n_B} (x_{kj} - \bar{x}_{Bj})^2 \right) }$
+  - $a = \frac{1/n_A + 1/n_B}{n_A + n_B -2}$
+
+- Gene set co-expression analysis
+  - statistic to identify differentially co-expressed genes
+  - computes pairwise correlations for all gene pairs
+  - $D_{GSCA}$ measures the dispersion of correlations between phenotypes A and B
+  - $D_{GSCA} = \sqrt{\frac{1}{|V|(|V|-1)/2} \sum_{k=2}^{|V|}\sum_{j=1}^{k-1}(C_{kj}^A - C_{kj}^B)^2}$
+  - $c_{kj}^A$ is the Pearson correlation between the $k$th and $j$th genes
+
 ## References
 
 - [CIdrgn paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC10446197/pdf/pone.0286044.pdf)
@@ -91,3 +119,8 @@ Generating gene expression for the remaining $p-100$ genes
 - [LASSO](https://webdoc.agsci.colostate.edu/koontz/arec-econ535/papers/Tibshirani%20(JRSS-B%201996).pdf)
 - [Huge R package](https://cran.r-project.org/web/packages/huge/vignettes/vignette.pdf)
 - [Statistical test methods paper](https://www.nature.com/articles/s41598-019-47362-7)
+- [SAM statistic](https://www.pnas.org/doi/full/10.1073/pnas.091062498)
+- [SAM-GS statistic](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-242)
+- [SAM-GS excel add-in](https://sites.ualberta.ca/~yyasui/SAM-GS/SAM-GS%20Documentation.pdf)
+- [GSCA statistic](https://academic.oup.com/bioinformatics/article/25/21/2780/226874)
+- [GSCA RData](https://www.biostat.wisc.edu/~kendzior/GSCA/GSCA.RData)

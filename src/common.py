@@ -13,6 +13,13 @@ class SubnetworkType(Enum):
     BAND = 5
 
 
+class StatisticMethod(Enum):
+    GSCA = 1
+    SAM_GS = 2
+    CIDRGN1 = 3
+    CIDRGN2 = 4
+
+
 def parse_positive_int(value):
     try:
         ivalue = int(value)
