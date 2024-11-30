@@ -20,6 +20,10 @@ class StatisticMethod(Enum):
     CIDRGN2 = 4
 
 
+class TopologicalDissimilarityMeasure(Enum):
+    BASIC = 1
+
+
 def parse_positive_int(value):
     try:
         ivalue = int(value)
