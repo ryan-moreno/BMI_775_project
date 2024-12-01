@@ -201,9 +201,6 @@ def create_simulated_gene_expression_data(
         }
     )
 
-    # Randomize the gene order
-    full_gene_expr_A = full_gene_expr_A.sample(frac=1).reset_index(drop=True)
-    full_gene_expr_B = full_gene_expr_B.sample(frac=1).reset_index(drop=True)
     full_gene_expr_A.drop(columns=["subnetwork_id"], inplace=True)
     full_gene_expr_B.drop(columns=["subnetwork_id"], inplace=True)
 

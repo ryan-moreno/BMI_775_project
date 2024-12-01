@@ -115,7 +115,7 @@ def regulatory_dissimilarity(
     - regulatory dissimilarity
     """
 
-    # TODO: should this be symmetric?
+    assert len(subnetwork) > 0
     assert (
         adj_matrix_A.shape[0]
         == adj_matrix_A.shape[1]
@@ -125,7 +125,7 @@ def regulatory_dissimilarity(
 
     # Compute regulatory dissimilarity per gene
     regulatory_dissimilarity = compute_regulatory_dissimilarities_per_gene(
-        gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B
+        gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B, subnetwork
     )
 
     # Regulatory dissimilarity is averaged across genes in the subnetwork
@@ -134,14 +134,16 @@ def regulatory_dissimilarity(
     return total_regulatory_dissimilarity.iloc[0] / len(subnetwork)
 
 
-def compute_weighted_regulatory_effect_matrix(adj_matrix, gene_expr):
+def compute_weighted_regulatory_effect_matrix(adj_matrix, gene_expr, subnetwork=None):
     """
-    Computes the weightedregulatory effect matrix for a given adjacency matrix and gene expression data.
+    Computes the weighted regulatory effect matrix for a given adjacency matrix and gene expression data.
 
     Parameters:
     - gene_expr: df containing gene expression data (rows are genes, columns are samples)
     - adj_matrix: df containing regression coefficient for the effect of the col gene on row gene for
         (index and column names are gene_id)
+    - subnetwork: list of gene_ids for which to calculate the weighted regulatory effect matrix
+        (default None indicates all genes)
 
     Returns:
     - df containing the weighted regulatory effect matrix
@@ -149,11 +151,17 @@ def compute_weighted_regulatory_effect_matrix(adj_matrix, gene_expr):
     """
 
     regulatory_effect_matrix = pd.DataFrame(
-        float(0), index=adj_matrix.index, columns=adj_matrix.columns
+        float(-1), index=adj_matrix.index, columns=adj_matrix.columns
     )
     for j_gene in regulatory_effect_matrix.columns:
         mean_expr_j_gene = gene_expr.loc[j_gene].mean()
         for i_gene in regulatory_effect_matrix.index:
+            if (
+                subnetwork is not None
+                and j_gene not in subnetwork
+                and i_gene not in subnetwork
+            ):
+                continue
             regulatory_effect_matrix.loc[i_gene, j_gene] = (
                 adj_matrix.loc[i_gene, j_gene] * mean_expr_j_gene
             )
@@ -161,7 +169,7 @@ def compute_weighted_regulatory_effect_matrix(adj_matrix, gene_expr):
 
 
 def compute_regulatory_dissimilarities_per_gene(
-    gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B
+    gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B, subnetwork=None
 ):
     """
     Calculate the regulatory dissimilarity of each gene, given the weighted regulatory effect matrices
@@ -173,6 +181,7 @@ def compute_regulatory_dissimilarities_per_gene(
         phenotype A (index and column names are gene_id)
     - adj_matrix_B: df containing regression coefficient for the effect of the col gene on row gene for
         phenotype B (index and column names are gene_id)
+    - subnetwork: list of gene_ids for which to calculate the regulatory dissimilarity (default None indicates all genes)
 
     Returns:
     - df containing regulatory dissimilarity of each gene (rows are genes, column is "regulatory_dissimilarity")
@@ -180,17 +189,23 @@ def compute_regulatory_dissimilarities_per_gene(
 
     # Compute weighted regulatory effect matrices
     regulatory_effect_A = compute_weighted_regulatory_effect_matrix(
-        adj_matrix_A, gene_expr_A
+        adj_matrix_A, gene_expr_A, subnetwork
     )
     regulatory_effect_B = compute_weighted_regulatory_effect_matrix(
-        adj_matrix_B, gene_expr_B
+        adj_matrix_B, gene_expr_B, subnetwork
     )
 
     regulatory_dissimilarity = pd.DataFrame(
-        float(0), index=regulatory_effect_A.index, columns=["regulatory_dissimilarity"]
+        float(-1),
+        index=regulatory_effect_A.index,
+        columns=["regulatory_dissimilarity"],
     )
+
     # Compute regulatory dissimilarity per gene in network
     for gene_id in regulatory_effect_A.index:
+        if subnetwork is not None and gene_id not in subnetwork:
+            continue
+
         regulatory_effect_vector_A = list(regulatory_effect_A.loc[:, gene_id]) + list(
             regulatory_effect_A.loc[gene_id, :]
         )
@@ -228,8 +243,10 @@ def topological_dissimilarity(
     Mathematical definition in README.
 
     Parameters:
-    - adj_matrix_A: df of undirected regulatory network for phenotype A (index and column names are gene_id)
-    - adj_matrix_B: df of undirected regtulatory network phenotype B (index and column names are gene_id)
+    - adj_matrix_A: df of regulatory network for phenotype A
+        (if value at (i,j) > 0, this means that gene j regulates gene i)
+    - adj_matrix_B: df of regtulatory network phenotype B
+        (if value at (i,j) > 0, this means that gene j regulates gene i)
     - subnetwork: list of gene_id for genes in the subnetwork
     - topological_dissimilarity_measure: common.TopologicalDissimilarityMeasure to use
 
@@ -237,15 +254,13 @@ def topological_dissimilarity(
     - topological dissimilarity for the given subnetwork
     """
 
-    # Adjacency matrices should be symmetric
+    assert len(subnetwork) > 0
     assert (
         adj_matrix_A.shape[0]
         == adj_matrix_A.shape[1]
         == adj_matrix_B.shape[0]
         == adj_matrix_B.shape[1]
     )
-    assert np.allclose(adj_matrix_A, adj_matrix_A.T)
-    assert np.allclose(adj_matrix_B, adj_matrix_B.T)
 
     # Subnetwork genes in adjacency matrices
     for gene in subnetwork:
@@ -258,7 +273,7 @@ def topological_dissimilarity(
         == common.TopologicalDissimilarityMeasure.BASIC
     ):
         df_topological = compute_basic_topological_dissimilarity_per_gene(
-            adj_matrix_A, adj_matrix_B
+            adj_matrix_A, adj_matrix_B, subnetwork
         )
     else:
         raise NotImplementedError(
@@ -271,14 +286,19 @@ def topological_dissimilarity(
     return total_topological_dissimilarity.iloc[0] / len(subnetwork)
 
 
-def compute_basic_topological_dissimilarity_per_gene(adj_matrix_A, adj_matrix_B):
+def compute_basic_topological_dissimilarity_per_gene(
+    adj_matrix_A, adj_matrix_B, subnetwork=None
+):
     """
     Calculate the topological dissimilarity statistic for each gene. Based on the basic
     definition in Cidrgn1. Mathematical definition in README.
 
     Parameters:
-    - adj_matrix_A: df of undirected regulatory network for phenotype A (index and column names are gene_id)
-    - adj_matrix_B: df of undirected regtulatory network phenotype B (index and column names are gene_id)
+    - adj_matrix_A: df of regulatory network for phenotype A
+        (if value at (i,j) > 0, this means that gene j regulates gene i)
+    - adj_matrix_B: df of regtulatory network phenotype B
+        (if value at (i,j) > 0, this means that gene j regulates gene i)
+    - subnetwork: list of genes to compute topological dissimilarity for (default None indicates all genes)
 
     Returns:
     - df containing topological dissimilarity per gene (rows are genes, column is "topological_dissimilarity")
@@ -288,19 +308,23 @@ def compute_basic_topological_dissimilarity_per_gene(adj_matrix_A, adj_matrix_B)
     assert all(adj_matrix_A.columns == adj_matrix_B.columns)
 
     topological_dissimilarity = pd.DataFrame(
-        float(0), index=adj_matrix_A.index, columns=["topological_dissimilarity"]
+        float(-1), index=adj_matrix_A.index, columns=["topological_dissimilarity"]
     )
 
+    # Compute topological dissimilarity per gene in network
     for gene_j in adj_matrix_A.index:
-        neighborhood_A = set(
-            adj_matrix_A.loc[gene_j][adj_matrix_A.loc[gene_j] == 1].index
-        )
-        neighborhood_B = set(
-            adj_matrix_B.loc[gene_j][adj_matrix_B.loc[gene_j] == 1].index
-        )
-        neighborhood_similarity = len(
-            neighborhood_A.intersection(neighborhood_B)
-        ) / len(neighborhood_A.union(neighborhood_B))
+        if subnetwork is not None and gene_j not in subnetwork:
+            continue
+
+        # Neighborhood of gene j is the set of genes that gene j regulates
+        neighborhood_A = set(adj_matrix_A.index[adj_matrix_A[gene_j] > 0])
+        neighborhood_B = set(adj_matrix_B.index[adj_matrix_B[gene_j] > 0])
+        if len(neighborhood_A) == 0 and len(neighborhood_B) == 0:
+            neighborhood_similarity = 1
+        else:
+            neighborhood_similarity = len(
+                neighborhood_A.intersection(neighborhood_B)
+            ) / len(neighborhood_A.union(neighborhood_B))
         jacard_distance = 1 - neighborhood_similarity
         topological_dissimilarity.loc[gene_j] = jacard_distance
 
@@ -309,7 +333,7 @@ def compute_basic_topological_dissimilarity_per_gene(adj_matrix_A, adj_matrix_B)
 
 def adjusted_regulatory_dissimilarity(
     gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B, subnetwork
-):  # TODO
+):
     """
     Calculate the adjusted regulatory dissimilarity statistic for a given subnetwork.
     Mathematical definition in README. Assuming that a non-zero position in the adjacency matrix
@@ -328,6 +352,7 @@ def adjusted_regulatory_dissimilarity(
     - regulatory dissimilarity
     """
 
+    assert len(subnetwork) > 0
     assert (
         adj_matrix_A.shape[0]
         == adj_matrix_A.shape[1]
@@ -335,19 +360,16 @@ def adjusted_regulatory_dissimilarity(
         == adj_matrix_B.shape[1]
     )
 
-    binary_adj_matrix_A = adj_matrix_A.applymap(lambda x: 1 if x != 0 else 0)
-    binary_adj_matrix_B = adj_matrix_B.applymap(lambda x: 1 if x != 0 else 0)
-    assert np.allclose(binary_adj_matrix_A, adj_matrix_A.T)
-    assert np.allclose(binary_adj_matrix_B, binary_adj_matrix_B.T)
-
     df_topological_dissimilarity = compute_basic_topological_dissimilarity_per_gene(
-        binary_adj_matrix_A, binary_adj_matrix_B
+        adj_matrix_A, adj_matrix_B, subnetwork
     )
     df_regulatory_dissimilarity = compute_regulatory_dissimilarities_per_gene(
-        gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B
+        gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B, subnetwork
     )
 
-    df_dissimilarities = df_topological_dissimilarity.merge(df_regulatory_dissimilarity)
+    df_dissimilarities = df_topological_dissimilarity.merge(
+        df_regulatory_dissimilarity, left_index=True, right_index=True
+    )
     df_dissimilarities["adjusted_regulatory_dissimilarity"] = (
         df_dissimilarities["regulatory_dissimilarity"]
         + df_dissimilarities["topological_dissimilarity"]
@@ -358,8 +380,7 @@ def adjusted_regulatory_dissimilarity(
     total_adjusted_regulatory_dissimilarity = df_dissimilarities.loc[
         subnetwork, "adjusted_regulatory_dissimilarity"
     ].sum()
-    assert total_adjusted_regulatory_dissimilarity.shape[0] == 1
-    return total_adjusted_regulatory_dissimilarity.iloc[0] / len(subnetwork)
+    return total_adjusted_regulatory_dissimilarity / len(subnetwork)
 
 
 def gsca_statistic(gene_expr_A, gene_expr_B, subnetwork):
@@ -376,10 +397,11 @@ def gsca_statistic(gene_expr_A, gene_expr_B, subnetwork):
     - GSCA statistic
     """
 
+    assert len(subnetwork) > 0
+
     num_node_pairs = math.comb(len(subnetwork), 2)
 
     summed_dispersion_correlations = 0
-
     for gene in subnetwork:
         for gene_2 in subnetwork:
             if gene == gene_2:
@@ -408,6 +430,8 @@ def sam_gs_statistic(gene_expr_A, gene_expr_B, subnetwork):
     Returns:
     - SAM-GS statistic
     """
+
+    assert len(subnetwork) > 0
 
     return r_wrappers.sam_gs(gene_expr_A, gene_expr_B, subnetwork)
 
