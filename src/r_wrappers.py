@@ -83,7 +83,7 @@ def huge_generator(
 
     # Call huge.generator in R
     result = packages["huge"].huge_generator(
-        r_num_samples, r_num_variables, graph_type, v=r_v, u=r_u, g=1
+        r_num_samples, r_num_variables, graph_type, v=r_v, u=r_u, g=1, prob=1
     )
 
     # Extract elements from the result (S3 object "sim")

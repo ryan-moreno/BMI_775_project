@@ -119,6 +119,19 @@ def infer_grn_simulated_data():
                 sep="\t",
             )
 
+            # Plot inferred networks
+            metadata = pd.read_csv(
+                f"data/simulated_gene_expression/{simulation_name}/metadata.tsv",
+                sep="\t",
+            )
+
+            common.plot_directed_graph(
+                adj_matrix_A, f"{folder}/inferred_network_A.png", node_groups=metadata
+            )
+            common.plot_directed_graph(
+                adj_matrix_B, f"{folder}/inferred_network_B.png", node_groups=metadata
+            )
+
 
 def infer_grn_lasso(gene_expression, regularization_param):
     """

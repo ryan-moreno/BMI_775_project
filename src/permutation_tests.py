@@ -38,10 +38,6 @@ def benchmark_permutation_test(
         - permutation_test_stats: df containing the test statistics for each subnetwork (indices are subnetwork_id and columns are statistics)
         - p_values: df containing the p-values for each subnetwork (indices are subnetwork_id for subnetworks of interest and
             columns are p-values associated with statistics)
-    - A dictionary containing the following:
-        - p_value: The p-value of the permutation test
-        - test_statistic: The test statistic of the permutation test
-        - null_distribution: The null distribution of the permutation test
     """
 
     assert (
@@ -208,9 +204,6 @@ def permutation_tests_simulated_data():
             simulation_name = (
                 f"sim_gt-{graph_type.name.lower()}_subnetworksize-{10}_numsamples-{50}"
             )
-
-            if simulation_name == "sim_gt-random_subnetworksize-10_numsamples-50":
-                continue  # TODO: delete this; already ran this experiment
 
             # Read in gene expression data
             gene_expr_A = pd.read_csv(

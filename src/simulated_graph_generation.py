@@ -6,8 +6,8 @@ import common
 import r_wrappers
 
 params = {
-    "u": 0.5,  # controls off-diagonal elements of the precision matrix
-    "v": 0.2,  # added to the diagonal elements of the precision matrix
+    "u": 0.0001,  # controls off-diagonal elements of the precision matrix
+    "v": 0.9,  # added to the diagonal elements of the precision matrix
     "g": 1,  # for cluster/hub, this is the number of groups; for band this is the bandwidth
 }
 
@@ -51,40 +51,40 @@ def generate_subnetwork(n_genes, n_samples, subnetwork_type, folder=None, name=N
     return common_subnetwork
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="Generate a simulated graph.")
-    parser.add_argument(
-        "--n_common_subnetwork_genes",
-        type=common.parse_positive_int,
-        required=True,
-        help="Number of genes in each common subnetwork.",
-    )
-    parser.add_argument(
-        "--n_differential_subnetwork_genes",
-        type=common.parse_positive_int,
-        required=True,
-        help="Number of genes in each differential subnetwork.",
-    )
-    parser.add_argument(
-        "--n_common_subnetworks",
-        type=common.parse_positive_int,
-        required=True,
-        help="Number of common subnetworks",
-    )
-    parser.add_argument(
-        "--n_differential_subnetworks",
-        type=common.parse_positive_int,
-        required=True,
-        help="Number of differential subnetworks",
-    )
-    parser.add_argument(
-        "--subnetwork_type",
-        type=common.parse_subnetwork_type,
-        required=True,
-        help="Type of subnetwork  for common subnetworks and differential subnetworks in A",
-    )
+# def parse_arguments():
+#     parser = argparse.ArgumentParser(description="Generate a simulated graph.")
+#     parser.add_argument(
+#         "--n_common_subnetwork_genes",
+#         type=common.parse_positive_int,
+#         required=True,
+#         help="Number of genes in each common subnetwork.",
+#     )
+#     parser.add_argument(
+#         "--n_differential_subnetwork_genes",
+#         type=common.parse_positive_int,
+#         required=True,
+#         help="Number of genes in each differential subnetwork.",
+#     )
+#     parser.add_argument(
+#         "--n_common_subnetworks",
+#         type=common.parse_positive_int,
+#         required=True,
+#         help="Number of common subnetworks",
+#     )
+#     parser.add_argument(
+#         "--n_differential_subnetworks",
+#         type=common.parse_positive_int,
+#         required=True,
+#         help="Number of differential subnetworks",
+#     )
+#     parser.add_argument(
+#         "--subnetwork_type",
+#         type=common.parse_subnetwork_type,
+#         required=True,
+#         help="Type of subnetwork  for common subnetworks and differential subnetworks in A",
+#     )
 
-    return parser.parse_args()
+#     return parser.parse_args()
 
 
 def create_simulated_gene_expression_data(
@@ -103,6 +103,8 @@ def create_simulated_gene_expression_data(
         >= num_common_subnetwork_genes * num_common_subnetworks
         + num_differential_subnetwork_genes * num_differential_subnetworks
     ), "Total number of genes should be greater than the sum of genes in common and differential subnetworks"
+
+    print(f"Generating simulated gene expression data for {simulation_name}")
 
     simulation_folder = f"data/simulated_gene_expression/{simulation_name}"
 
@@ -213,21 +215,148 @@ def create_simulated_gene_expression_data(
     )
     metadata.to_csv(f"{simulation_folder}/metadata.tsv", index=False, sep="\t")
 
+    # Plot heatmaps for gene expression data
+    full_gene_expr_A.index = full_gene_expr_A["gene_id"]
+    full_gene_expr_A.drop(columns=["gene_id"], inplace=True)
+    common.plot_gene_expression_heatmap(
+        full_gene_expr_A,
+        metadata,
+        f"{simulation_folder}/gene_expression_A_raw.png",
+        title="",
+    )
+    common.plot_gene_expression_heatmap(
+        full_gene_expr_A,
+        metadata,
+        f"{simulation_folder}/gene_expression_A_standardized.png",
+        title="",
+        standardized=True,
+    )
+    full_gene_expr_B.index = full_gene_expr_B["gene_id"]
+    full_gene_expr_B.drop(columns=["gene_id"], inplace=True)
+    common.plot_gene_expression_heatmap(
+        full_gene_expr_B,
+        metadata,
+        f"{simulation_folder}/gene_expression_B_raw.png",
+        title="",
+    )
+    common.plot_gene_expression_heatmap(
+        full_gene_expr_B,
+        metadata,
+        f"{simulation_folder}/gene_expression_B_standardized.png",
+        title="",
+        standardized=True,
+    )
 
-if __name__ == "__main__":
-    # args = parse_arguments()
+    # Compute the empirical covariance matrices for the gene expression data
+    print("Computing empirical covariance matrices")
+    empirical_cov_A = full_gene_expr_A.T.cov()
+    empirical_cov_B = full_gene_expr_B.T.cov()
+    empirical_cov_A.to_csv(
+        f"{simulation_folder}/empirical_cov_A.tsv", index=True, sep="\t"
+    )
+    empirical_cov_B.to_csv(
+        f"{simulation_folder}/empirical_cov_B.tsv", index=True, sep="\t"
+    )
+
+    # Plot covariance matrix
+    print("Plotting covariance matrices")
+    common.plot_covariance_heatmap(
+        empirical_cov_A,
+        f"{simulation_folder}/empirical_cov_A.png",
+        title="Empirical Covariance Matrix A",
+    )
+    common.plot_covariance_heatmap(
+        empirical_cov_B,
+        f"{simulation_folder}/empirical_cov_B.png",
+        title="Empirical Covariance Matrix B",
+    )
+
+
+def redo_plots(simulated_data_folder):
+    metadata = pd.read_csv(f"{simulated_data_folder}/metadata.tsv", sep="\t")
+
+    gene_expression_data_A = pd.read_csv(
+        f"{simulated_data_folder}/gene_expression_A.tsv",
+        sep="\t",
+        index_col=0,
+    )
+    common.plot_gene_expression_heatmap(
+        gene_expression_data_A,
+        metadata,
+        f"{simulated_data_folder}/gene_expression_heatmap_A.png",
+    )
+
+    gene_expression_data_B = pd.read_csv(
+        f"{simulated_data_folder}/gene_expression_B.tsv",
+        sep="\t",
+        index_col=0,
+    )
+    common.plot_gene_expression_heatmap(
+        gene_expression_data_B,
+        metadata,
+        f"{simulated_data_folder}/gene_expression_heatmap_B.png",
+    )
+
+    covariance_matrix_A = pd.read_csv(
+        f"{simulated_data_folder}/empirical_cov_A.tsv", sep="\t", index_col=0
+    )
+    common.plot_covariance_heatmap(
+        covariance_matrix_A,
+        metadata,
+        f"{simulated_data_folder}/empirical_cov_A.png",
+    )
+    covariance_matrix_B = pd.read_csv(
+        f"{simulated_data_folder}/empirical_cov_B.tsv", sep="\t", index_col=0
+    )
+    common.plot_covariance_heatmap(
+        covariance_matrix_B,
+        metadata,
+        f"{simulated_data_folder}/empirical_cov_B.png",
+    )
+
+
+def create_normal_size_dataset():
     for graph_type in common.SubnetworkType:
         if graph_type != common.SubnetworkType.BAND:
             simulation_name = (
                 f"sim_gt-{graph_type.name.lower()}_subnetworksize-{10}_numsamples-{50}"
             )
+
+            redo_plots(f"data/simulated_gene_expression/{simulation_name}")
+
+            # create_simulated_gene_expression_data(
+            #     total_num_genes=1000,
+            #     num_common_subnetwork_genes=10,
+            #     num_differential_subnetwork_genes=10,
+            #     num_common_subnetworks=4,
+            #     num_differential_subnetworks=6,
+            #     num_samples=50,
+            #     graph_type=graph_type,
+            #     simulation_name=simulation_name,
+            # )
+
+
+def create_small_dataset(rep=None):
+    for graph_type in common.SubnetworkType:
+        if graph_type != common.SubnetworkType.BAND:
+            simulation_name = (
+                f"sim_gt-{graph_type.name.lower()}_subnetworksize-{4}_numsamples-{20}"
+            )
+            if rep is not None:
+                simulation_name = f"rep{rep}/{simulation_name}"
+
             create_simulated_gene_expression_data(
-                total_num_genes=1000,
-                num_common_subnetwork_genes=10,
-                num_differential_subnetwork_genes=10,
+                total_num_genes=50,
+                num_common_subnetwork_genes=4,
+                num_differential_subnetwork_genes=4,
                 num_common_subnetworks=4,
-                num_differential_subnetworks=6,
-                num_samples=50,
+                num_differential_subnetworks=0,
+                num_samples=20,
                 graph_type=graph_type,
                 simulation_name=simulation_name,
             )
+
+
+if __name__ == "__main__":
+    # create_small_dataset(rep=5)
+    create_normal_size_dataset()

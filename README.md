@@ -8,7 +8,22 @@
   - "We consider the gene regulatory network structure based on not only expression levels of genes but also edge structures and regulatory effects of regulator
 genes to their target genes and incorporate the comprehensive information into a dissimilarity measure to compare the gene regulatory networks."
   - In the monte carlo setting they may just be looking at the selected subnetworks themselves??
+- Try using GSCA instead of SAM_GS
 
+## Trials
+
+- Rep 1 was run with lasso regularization of 0.5
+- Rep 2 was run with lasso regularization of 0.2
+- Rep 3 was a small version of the normal parameters for graph generation (u = 0.5, v=0.2)
+- Rep 4 is a small version using u = 0.8, v = 0.2
+- Rep 5 is small using u = 0.9, v=0.9
+- Rep 6
+  - Gene expression values all had mean 0 (as above)
+  - u = 0.0001, v = 0.9 were used
+  - lasso regularization of 0.5 used
+- Rep 7
+  - Diff B expression values had mean 0.3
+  - u = 0.5, v = 0.2, Lasso regularization of 0.5
 
 ## Background
 
