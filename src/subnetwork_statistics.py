@@ -3,9 +3,14 @@ import numpy as np
 import math
 import common
 import r_wrappers
+from node2vec import Node2Vec
+import networkx as nx
 
 params = {
-    # "sam_gs_s0": 0.154134905336625  # 3.3  # SAM_GS tuning parameter TODO: chosen to minimize the coefficient of variation
+    # "sam_gs_s0": 0.154134905336625  # 3.3  # SAM_GS tuning parameter: chosen to minimize the coefficient of variation (done in R)
+    "node2vec_walk_length": 80,
+    "node2vec_num_walks": 150,
+    "node2vec_dimensions": 16,
 }
 
 
@@ -236,7 +241,13 @@ def compute_regulatory_dissimilarities_per_gene(
 
 
 def topological_dissimilarity(
-    adj_matrix_A, adj_matrix_B, subnetwork, topological_dissimilarity_measure
+    adj_matrix_A,
+    adj_matrix_B,
+    subnetwork,
+    topological_dissimilarity_measure,
+    node2vec_embeddings_A=None,
+    node2vec_embeddings_B=None,
+    n_neighbors=10,
 ):
     """
     Calculate the topological dissimilarity statistic for a given subnetwork.
@@ -249,6 +260,9 @@ def topological_dissimilarity(
         (if value at (i,j) > 0, this means that gene j regulates gene i)
     - subnetwork: list of gene_id for genes in the subnetwork
     - topological_dissimilarity_measure: common.TopologicalDissimilarityMeasure to use
+    - node2vec_embeddings_A: node2vec embeddings for condition A (default None indicates that they should be computed if needed)
+    - node2vec_embeddings_B: node2vec embeddings for condition B (default None indicates that they should be computed if needed)
+    - n_neighbors: number of neighbors to consider for the topological dissimilarity calculation (if using node2vec)
 
     Returns:
     - topological dissimilarity for the given subnetwork
@@ -275,6 +289,18 @@ def topological_dissimilarity(
         df_topological = compute_basic_topological_dissimilarity_per_gene(
             adj_matrix_A, adj_matrix_B, subnetwork
         )
+    elif (
+        topological_dissimilarity_measure
+        == common.TopologicalDissimilarityMeasure.NODE2VEC
+    ):
+        df_topological = compute_node2vec_topological_dissimilarity_per_gene(
+            adj_matrix_A,
+            adj_matrix_B,
+            node2vec_embeddings_A,
+            node2vec_embeddings_B,
+            subnetwork,
+            n_neighbors=n_neighbors,
+        )
     else:
         raise NotImplementedError(
             f"Topological similarity measure {topological_dissimilarity_measure} not implemented"
@@ -283,6 +309,9 @@ def topological_dissimilarity(
     # Topolgoical dissimilarity is averaged across genes in the subnetwork
     total_topological_dissimilarity = df_topological.loc[subnetwork].sum()
     assert total_topological_dissimilarity.shape[0] == 1
+    print(
+        f"Top Dis: {total_topological_dissimilarity.iloc[0] / len(subnetwork)}"
+    )  # TODO: remove this
     return total_topological_dissimilarity.iloc[0] / len(subnetwork)
 
 
@@ -331,8 +360,113 @@ def compute_basic_topological_dissimilarity_per_gene(
     return topological_dissimilarity
 
 
+def compute_node2vec_embeddings(adj_matrix_A, adj_matrix_B, p=1, q=1):
+    """
+    Calculates the node2vec embeddings for the given adjacency matrices
+    """
+
+    assert all(adj_matrix_A.index == adj_matrix_B.index)
+    assert all(adj_matrix_A.columns == adj_matrix_B.columns)
+
+    # Create node2vec embeddings of each node
+    graph_A = nx.from_pandas_adjacency(adj_matrix_A, create_using=nx.DiGraph)
+    node2vec_A = Node2Vec(
+        graph_A,
+        dimensions=params["node2vec_dimensions"],
+        walk_length=params["node2vec_walk_length"],
+        num_walks=params["node2vec_num_walks"],
+        p=p,
+        q=q,
+    )
+    embeddings_A = node2vec_A.fit(window=10, min_count=1, batch_words=10).wv
+
+    graph_B = nx.from_pandas_adjacency(adj_matrix_B, create_using=nx.DiGraph)
+    node2vec_B = Node2Vec(
+        graph_B,
+        dimensions=params["node2vec_dimensions"],
+        walk_length=params["node2vec_walk_length"],
+        num_walks=params["node2vec_num_walks"],
+        p=p,
+        q=q,
+    )
+    embeddings_B = node2vec_B.fit(window=10, min_count=1, batch_words=10).wv
+
+    return embeddings_A, embeddings_B
+
+
+def compute_node2vec_topological_dissimilarity_per_gene(
+    adj_matrix_A,
+    adj_matrix_B,
+    embeddings_A=None,
+    embeddings_B=None,
+    subnetwork=None,
+    n_neighbors=10,
+):
+    """
+    Calculate the topological dissimilarity statistic for each gene using Node2Vec embeddings.
+    Mathematical definition in README.
+
+    Parameters:
+    - adj_matrix_A: df of regulatory network for phenotype A
+        (if value at (i,j) > 0, this means that gene j regulates gene i)
+    - adj_matrix_B: df of regtulatory network phenotype B
+        (if value at (i,j) > 0, this means that gene j regulates gene i)
+    - embeddings_A: node2vec embeddings for condition A (default None indicates that they should be computed)
+    - embeddings_B: node2vec embeddings for condition B (default None indicates that they should be computed)
+    - subnetwork: list of genes to compute topological dissimilarity for (default None indicates all genes)
+    - n_neighbors: number of neighbors to consider for the topological dissimilarity calculation
+
+    Returns:
+    - df containing topological dissimilarity per gene (rows are genes, column is "topological_dissimilarity")
+    """
+
+    assert all(adj_matrix_A.index == adj_matrix_B.index)
+    assert all(adj_matrix_A.columns == adj_matrix_B.columns)
+
+    if embeddings_A is None or embeddings_B is None:
+        embeddings_A, embeddings_B = compute_node2vec_embeddings(
+            adj_matrix_A, adj_matrix_B
+        )
+
+    topological_dissimilarity = pd.DataFrame(
+        float(-1), index=adj_matrix_A.index, columns=["topological_dissimilarity"]
+    )
+
+    # Compute topological dissimilarity per gene in network
+    for gene_j in adj_matrix_A.index:
+        if subnetwork is not None and gene_j not in subnetwork:
+            continue
+
+        # Neighborhood of gene j is the set of genes with the closest embeddings to j
+        neighborhood_A = set(embeddings_A.most_similar(gene_j, topn=n_neighbors))
+        neighborhood_A = set(
+            nhd[0] for nhd in neighborhood_A
+        )  # TODO: could consider weighting these by the similarity
+        neighborhood_B = set(embeddings_B.most_similar(gene_j, topn=n_neighbors))
+        neighborhood_B = set(nhd[0] for nhd in neighborhood_B)
+
+        if len(neighborhood_A) == 0 and len(neighborhood_B) == 0:
+            neighborhood_similarity = 1
+        else:
+            neighborhood_similarity = len(
+                neighborhood_A.intersection(neighborhood_B)
+            ) / len(neighborhood_A.union(neighborhood_B))
+        jacard_distance = 1 - neighborhood_similarity
+        topological_dissimilarity.loc[gene_j] = jacard_distance
+
+    return topological_dissimilarity
+
+
 def adjusted_regulatory_dissimilarity(
-    gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B, subnetwork
+    gene_expr_A,
+    gene_expr_B,
+    adj_matrix_A,
+    adj_matrix_B,
+    topological_dissimilarity_type,
+    subnetwork,
+    node2vec_embeddings_A=None,
+    node2vec_embeddings_B=None,
+    n_neighbors=10,
 ):
     """
     Calculate the adjusted regulatory dissimilarity statistic for a given subnetwork.
@@ -346,7 +480,11 @@ def adjusted_regulatory_dissimilarity(
         phenotype A (index and column names are gene_id)
     - adj_matrix_B: df containing regression coefficient for the effect of the col gene on row gene for
         phenotype B (index and column names are gene_id)
+    - topological_dissimilarity_type: common.TopologicalDissimilarityMeasure to use
     - subnetwork: list of gene_id for genes in the subnetwork
+    - node2vec_embeddings_A: node2vec embeddings for condition A (default None indicates that they should be computed if needed)
+    - node2vec_embeddings_B: node2vec embeddings for condition B (default None indicates that they should be computed if needed)
+    - n_neighbors: number of neighbors to consider for the topological dissimilarity calculation (if using node2vec)
 
     Returns:
     - regulatory dissimilarity
@@ -360,9 +498,28 @@ def adjusted_regulatory_dissimilarity(
         == adj_matrix_B.shape[1]
     )
 
-    df_topological_dissimilarity = compute_basic_topological_dissimilarity_per_gene(
-        adj_matrix_A, adj_matrix_B, subnetwork
-    )
+    if topological_dissimilarity_type == common.TopologicalDissimilarityMeasure.BASIC:
+        df_topological_dissimilarity = compute_basic_topological_dissimilarity_per_gene(
+            adj_matrix_A, adj_matrix_B, subnetwork
+        )
+    elif (
+        topological_dissimilarity_type
+        == common.TopologicalDissimilarityMeasure.NODE2VEC
+    ):
+        df_topological_dissimilarity = (
+            compute_node2vec_topological_dissimilarity_per_gene(
+                adj_matrix_A,
+                adj_matrix_B,
+                node2vec_embeddings_A,
+                node2vec_embeddings_B,
+                subnetwork,
+                n_neighbors=n_neighbors,
+            )
+        )
+    else:
+        raise NotImplementedError(
+            f"Topological similarity measure {topological_dissimilarity_type} not implemented"
+        )
     df_regulatory_dissimilarity = compute_regulatory_dissimilarities_per_gene(
         gene_expr_A, gene_expr_B, adj_matrix_A, adj_matrix_B, subnetwork
     )

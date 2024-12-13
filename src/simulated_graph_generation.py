@@ -6,8 +6,8 @@ import common
 import r_wrappers
 
 params = {
-    "u": 0.0001,  # controls off-diagonal elements of the precision matrix
-    "v": 0.9,  # added to the diagonal elements of the precision matrix
+    "u": 0.5,  # controls off-diagonal elements of the precision matrix
+    "v": 0.2,  # added to the diagonal elements of the precision matrix
     "g": 1,  # for cluster/hub, this is the number of groups; for band this is the bandwidth
 }
 
@@ -49,42 +49,6 @@ def generate_subnetwork(n_genes, n_samples, subnetwork_type, folder=None, name=N
         )
 
     return common_subnetwork
-
-
-# def parse_arguments():
-#     parser = argparse.ArgumentParser(description="Generate a simulated graph.")
-#     parser.add_argument(
-#         "--n_common_subnetwork_genes",
-#         type=common.parse_positive_int,
-#         required=True,
-#         help="Number of genes in each common subnetwork.",
-#     )
-#     parser.add_argument(
-#         "--n_differential_subnetwork_genes",
-#         type=common.parse_positive_int,
-#         required=True,
-#         help="Number of genes in each differential subnetwork.",
-#     )
-#     parser.add_argument(
-#         "--n_common_subnetworks",
-#         type=common.parse_positive_int,
-#         required=True,
-#         help="Number of common subnetworks",
-#     )
-#     parser.add_argument(
-#         "--n_differential_subnetworks",
-#         type=common.parse_positive_int,
-#         required=True,
-#         help="Number of differential subnetworks",
-#     )
-#     parser.add_argument(
-#         "--subnetwork_type",
-#         type=common.parse_subnetwork_type,
-#         required=True,
-#         help="Type of subnetwork  for common subnetworks and differential subnetworks in A",
-#     )
-
-#     return parser.parse_args()
 
 
 def create_simulated_gene_expression_data(
@@ -157,6 +121,9 @@ def create_simulated_gene_expression_data(
             name=f"differential_subnetwork_B_{i}",
         )
         subn_expr_B = pd.DataFrame(subnetwork["data"]).T
+        subn_expr_B = (
+            subn_expr_B + 0.3
+        )  # B's differential subnetworks have a mean expression of 0.3
         subn_expr_B.columns = [f"sample_{j}" for j in range(num_samples)]
         subn_expr_B["subnetwork_id"] = f"differential_subnetwork_{i}"
         full_gene_expr_B = pd.concat([full_gene_expr_B, subn_expr_B], axis=0)
@@ -262,11 +229,13 @@ def create_simulated_gene_expression_data(
     print("Plotting covariance matrices")
     common.plot_covariance_heatmap(
         empirical_cov_A,
+        metadata,
         f"{simulation_folder}/empirical_cov_A.png",
         title="Empirical Covariance Matrix A",
     )
     common.plot_covariance_heatmap(
         empirical_cov_B,
+        metadata,
         f"{simulation_folder}/empirical_cov_B.png",
         title="Empirical Covariance Matrix B",
     )
@@ -322,18 +291,18 @@ def create_normal_size_dataset():
                 f"sim_gt-{graph_type.name.lower()}_subnetworksize-{10}_numsamples-{50}"
             )
 
-            redo_plots(f"data/simulated_gene_expression/{simulation_name}")
+            # redo_plots(f"data/simulated_gene_expression/{simulation_name}")
 
-            # create_simulated_gene_expression_data(
-            #     total_num_genes=1000,
-            #     num_common_subnetwork_genes=10,
-            #     num_differential_subnetwork_genes=10,
-            #     num_common_subnetworks=4,
-            #     num_differential_subnetworks=6,
-            #     num_samples=50,
-            #     graph_type=graph_type,
-            #     simulation_name=simulation_name,
-            # )
+            create_simulated_gene_expression_data(
+                total_num_genes=1000,
+                num_common_subnetwork_genes=10,
+                num_differential_subnetwork_genes=10,
+                num_common_subnetworks=4,
+                num_differential_subnetworks=6,
+                num_samples=50,
+                graph_type=graph_type,
+                simulation_name=simulation_name,
+            )
 
 
 def create_small_dataset(rep=None):

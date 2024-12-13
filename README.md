@@ -1,46 +1,5 @@
 # Differentially regulated gene network identification
 
-## TODO/ideas
-
-- Make subnetworks from B more realistic than band
-- How are the candidate subnetworks actually identified???
-  - "We considered $p = 1000$ and $μ_{10} = (0.3, 0.3, . . ., 0.3)^T$, and the gene regulatory networks were estimated using the lasso method, where the response and predictor variables are the expression levels of the target gene and regulator genes, respectively."
-  - "We consider the gene regulatory network structure based on not only expression levels of genes but also edge structures and regulatory effects of regulator
-genes to their target genes and incorporate the comprehensive information into a dissimilarity measure to compare the gene regulatory networks."
-  - In the monte carlo setting they may just be looking at the selected subnetworks themselves??
-- Try using GSCA instead of SAM_GS
-
-## Trials
-
-- Rep 1 was run with lasso regularization of 0.5
-- Rep 2 was run with lasso regularization of 0.2
-- Rep 3 was a small version of the normal parameters for graph generation (u = 0.5, v=0.2)
-- Rep 4 is a small version using u = 0.8, v = 0.2
-- Rep 5 is small using u = 0.9, v=0.9
-- Rep 6
-  - Gene expression values all had mean 0 (as above)
-  - u = 0.0001, v = 0.9 were used
-  - lasso regularization of 0.5 used
-- Rep 7
-  - Diff B expression values had mean 0.3
-  - u = 0.5, v = 0.2, Lasso regularization of 0.5
-
-## Background
-
-- Task: Differentially regulated gene network identification
-- Undirected graphs modeling conditional independence (TODO: review the proper name for this)
-- Gaussian graphical models
-- Bulk cell line gene networks
-  - aggregates data across all cells in a cell line
-  - identifies universal processes for the cell line
-  - Differential analysis focuses on differential regulation but not variation in the graph structure
-- Cell line characteristic-specific gene networks
-  - separate cells with specific characteristics (ex: bulk RNA-seq data collected separately for sensitive vs resistant)
-- Precision matrix: inverse of covariance matrix
-  - if $\Omega_{i,j}$ is non-zero, these genes are dependent conditioned on all other genes
-- SiGN-L1: infers gene networks via sparse precision matrix estimation (variation of Lasso)
-- Huge.generator: Generates multivariate Gaussian data with various graph structures
-
 ## Monte Carlo simulations
 
 As describedin CIdrgn
@@ -58,10 +17,6 @@ As describedin CIdrgn
   - 3: "scale-free" graph structure
   - 4: "hub" graph structure
 - $p = 100, \mu_{10} = [0.3, 0.3, ... 0.3]^T$
-- Then added in cell-line specific characteristics (variance across samples) -- TODO: understand this better
-  - sample-specific gene regulatory strength represents biological diversity in activation/suppression effect
-  - modulator adjusts gene network structure
-- Idea: do things other than just band for $\Omega_{B_i}$
 
 Generating gene expression for 10 genes in each of 4 common subnetworks:
 
@@ -86,9 +41,6 @@ Generating gene expression for the remaining $p-100$ genes
 - Lasso method
   - predictor variables $x^i$ are the expression levels of regulator genes
   - response variables $y_i$ are expression levels of each target gene
-  - TODO: How are the regulator and response variables separated in the Monte-Carlo simulation??
-
-- Cell line characteristic-specific gene network estimated using SiGN-L1
 
 ## Differential subnetwork identification
 
@@ -103,10 +55,6 @@ Generating gene expression for the remaining $p-100$ genes
   - TNR
   - F-measure
   - accuracy
-  - TODO: compare with their results in column “subnetwork size:10” of Table 1
-- Findings
-  - They find CIdrgn improves TNR of four common subnetworks
-  - CIdrgn effective for gene network identification in bulk cell line gene networks and cell line characteristic-specific gene networks TODO: understand the difference
 
 ## Statistics
 
@@ -136,6 +84,5 @@ Generating gene expression for the remaining $p-100$ genes
 - [Statistical test methods paper](https://www.nature.com/articles/s41598-019-47362-7)
 - [SAM statistic](https://www.pnas.org/doi/full/10.1073/pnas.091062498)
 - [SAM-GS statistic](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-242)
-- [SAM-GS excel add-in](https://sites.ualberta.ca/~yyasui/SAM-GS/SAM-GS%20Documentation.pdf)
 - [GSCA statistic](https://academic.oup.com/bioinformatics/article/25/21/2780/226874)
 - [GSCA RData](https://www.biostat.wisc.edu/~kendzior/GSCA/GSCA.RData)
